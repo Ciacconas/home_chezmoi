@@ -1,4 +1,16 @@
-[".build/dwm.git"]
+[".build/dwm"]
     type = "git-repo"
     url = "https://github.com/Ciacconas/dwm.git"
+    refreshPeriod = "168h"
+[".build/dmenu"]
+    type = "git-repo"
+    url = "https://github.com/flaport/dmenu"
+    refreshPeriod = "168h"
+[".build/st"]
+    type = "git-repo"
+    url = "https://github.com/flaport/st"
+    refreshPeriod = "168h"
+[".build/scroll"]
+    type = "git-repo"
+    url = "https://github.com/flaport/scroll"
     refreshPeriod = "168h"
