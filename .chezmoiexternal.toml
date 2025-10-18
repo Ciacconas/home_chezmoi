@@ -1,0 +1,4 @@
+[".build/dwm.git"]
+    type = "git-repo"
+    url = "https://github.com/Ciacconas/dwm.git"
+    refreshPeriod = "168h"
