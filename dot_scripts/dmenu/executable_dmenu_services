@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+#    _____ _     ____  ____  ____  ____  _____
+#   /    // \   /  _ \/  __\/  _ \/  __\/__ __\
+#   |  __\| |   | / \||  \/|| / \||  \/|  / \
+#   | |   | |_/\| |-|||  __/| \_/||    /  | |
+#   \_/   \____/\_/ \|\_/   \____/\_/\_\  \_/
+#
+
+preferred-services(){
+    find /etc/systemd/system -maxdepth 1 -type f -iname "*.service" | sed 's/@\.service//g' | sed 's/\.service//g' | sed 's|/etc/systemd/system/||g'
+    # extra entry for sshd:
+    find /usr/lib/systemd/system -maxdepth 1 -type f -iname "*.service" | grep sshd.service | sed 's/@\.service//g' | sed 's/\.service//g' | sed 's|/usr/lib/systemd/system/||g'
+    # extra entry for jellyfin:
+    find /usr/lib/systemd/system -maxdepth 1 -type f -iname "*.service" | grep jellyfin.service | sed 's/@\.service//g' | sed 's/\.service//g' | sed 's|/usr/lib/systemd/system/||g'
+    # extra entry for cups:
+    find /usr/lib/systemd/system -maxdepth 1 -type f -iname "*.service" | grep cups.service | sed 's/@\.service//g' | sed 's/\.service//g' | sed 's|/usr/lib/systemd/system/||g'
+}
+
+other-services(){
+    # all other services
+    find /usr/lib/systemd/system -maxdepth 1 -type f -iname "*.service" | sed 's/@\.service//g' | sed 's/\.service//g' | sed 's|/usr/lib/systemd/system/||g' | grep -v systemd
+}
+
+services=$(\
+while read line;  do
+    echo "[$(systemctl is-active $line)] $line"
+done <<< $((preferred-services | sort) && (other-services | sort)))
+
+service=$(printf "$services" | sed 's/\[active\]/ [stop]/g' | sed 's/\[activating\]/ [stop]/g' | sed 's/\[inactive\]/[start]/g' | dmenu -p " " "$@" | sed 's/\ *\[.*\]\ //g')
+
+if [ -z "$service" ]; then
+    exit 1
+fi
+
+if [[ $(systemctl is-active $service) == "active" ]]; then
+    sudo -A -p "[sudo] password to stop '$service.service'" systemctl stop $service
+    notify-send "stopping $service..." "$( [ $? -eq 0 ] && echo 'success!' || echo 'failed.' )"
+else
+    sudo -A -p "[sudo] password to start '$service.service'" systemctl restart $service;
+    notify-send "starting $service..." "$( [ $? -eq 0 ] && echo 'success!' || echo 'failed.' )"
+fi
+
+# update status bar
+dwm_status
+

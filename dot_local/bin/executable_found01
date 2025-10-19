@@ -1,0 +1,13 @@
+#!/bin/bash
+# xdg-open "$(find ~/NasMedia2/found01 -type f | fzf)"
+
+# find ~/NasMedia2/found01/jv ~/NasMedia2/found01/aria_download -type f -regex ".*\.mp4\|.*\.avi\|.*\.wmv\|.*\.mkv" | sed -E "s/.*jv\/|.*aria_//g" | \
+#   sort | fzf | sed "s/.*\///g" | sed 's/ /\\ /g' | \
+#   xargs -r find ~/NasMedia2/found01/jv ~/NasMedia2/found01/aria_download -type f -name | sed 's/ /\\ /g' | xargs -r mpv
+
+find ~/NasMedia2/found01/jv ~/NasMedia2/found01/aria_download -type f -regex ".*\.mp4$\|.*\.avi$\|.*\.wmv$\|.*\.mkv$" |\
+  sed -E "s/.*jv\/|.*aria_//g" | sort | fzf | sed "s/.*\///g" | \
+  xargs -I {} -r find ~/NasMedia2/found01/jv ~/NasMedia2/found01/aria_download -type f -name "{}" | \
+  xargs -I {} -r mpv "{}"
+
+

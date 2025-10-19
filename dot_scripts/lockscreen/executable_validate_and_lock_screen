@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+
+# Settings
+declare -a LIST_OF_WINDOW_TITLES_THAT_PREVENT_LOCKING=(
+    "TigerVNC"
+    "YouTube"
+    "Barrier"
+    "vncviewer"
+)
+
+# Find active window id
+get_active_id() {
+    xprop -root | awk '$1 ~ /_NET_ACTIVE_WINDOW/ { print $5 }'
+}
+
+# Determine a window's title text by it's ID
+get_window_title() {
+    # For mplayer or vlc, we might need to check WM_CLASS(STRING), idk.
+    xprop -id $1 | awk -F '=' '$1 ~ /_NET_WM_NAME\(UTF8_STRING\)/ { print $2 }'
+}
+
+# Determine if the locker command should run based on which windows are fullscreened.
+should_lock() {
+    id=$(get_active_id)
+    title=$(get_window_title $id)
+
+    # do not lock if anything is playing
+    if timeout 1s playerctl status 2> /dev/null | grep Playing &> /dev/null; then
+        return 1
+    fi
+
+    # do not lock if anything is playing
+    if grep  $HOME/.cache/dwm_status/status &> /dev/null; then
+        return 1
+    fi
+
+    # do not lock if any of the predefined window titles is fullscreen
+    for i in "${LIST_OF_WINDOW_TITLES_THAT_PREVENT_LOCKING[@]}"; do
+        if [[ $title =~ $i ]]; then
+            return 1
+        fi
+    done
+}
+
+# main()
+if should_lock; then
+	lock_screen
+fi

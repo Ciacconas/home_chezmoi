@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+#    _____ _     ____  ____  ____  ____  _____
+#   /    // \   /  _ \/  __\/  _ \/  __\/__ __\
+#   |  __\| |   | / \||  \/|| / \||  \/|  / \
+#   | |   | |_/\| |-|||  __/| \_/||    /  | |
+#   \_/   \____/\_/ \|\_/   \____/\_/\_\  \_/
+#
+
+# NOTE: this script does no longer work for bluetoothctl >≈ 5.65
+
+systemctl status bluetooth | grep inactive && exit 1
+
+bluetoothctl -- power on &> /dev/null
+device="$(echo exit | bluetoothctl | grep -o -m 1 "\b\[.*\]" | sed 's/.*\[\(.*\)\].*/\1/g')"
+
+if [ "$device" = bluetooth ]; then # no connection -> try to connect
+    devices="$(bluetoothctl -- paired-devices)"
+    device="$(echo "$devices" | dmenu -p " " "$@")"
+    mac="$(echo "$device" | grep -o "..:..:..:..:..:..")"
+    [ -z "$mac" ] && exit 0
+    message="$(bluetoothctl -- connect "$mac" | grep 'successful\|Failed')"
+else # a bluetooth connection exists -> try to disconnect
+    message="$(bluetoothctl -- disconnect | grep disconnected)"
+fi
+
+[ -z "$message" ] && exit 0
+
+notify-send "bluetooth connection" "$message"
+
+# update status bar
+dwm_status
+

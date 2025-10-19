@@ -1,0 +1,198 @@
+#!/usr/bin/python3
+#    _____ _     ____  ____  ____  ____  _____
+#   /    // \   /  _ \/  __\/  _ \/  __\/__ __\
+#   |  __\| |   | / \||  \/|| / \||  \/|  / \
+#   | |   | |_/\| |-|||  __/| \_/||    /  | |
+#   \_/   \____/\_/ \|\_/   \____/\_/\_\  \_/
+#
+""" Figure out all possible keyboard layout combinations and choose the best one.
+
+The best one is defined as:
+    - The last one chosen with dmenu_screenlayout, if it exists
+    - ELSE The one that activates the most screens.
+
+An example of one (of many) xrandr screenlayout created by this script::
+
+    xrandr --output eDP-1 --off --output HDMI-1 --off --output DP-1 --off --output HDMI-2 --off --output DP-1-1 --mode 1920x1080 --pos 0x0 --rotate normal --output DP-1-2 --off --output DP-1-3 --mode 1920x1080 --pos 1920x0 --rotate normal
+
+"""
+
+## Imports
+
+import os
+import stat
+from time import sleep
+from itertools import permutations
+from subprocess import check_call, check_output, Popen
+
+localbin = os.path.expanduser("~/.local/bin")
+
+
+## Functions
+
+
+def tuple_to_res(lst):
+    """ convert a tuple to a resolution string like '1920x1080' """
+    assert len(lst) == 2
+    assert isinstance(lst, (list, tuple))
+    return "x".join(map(str, lst))
+
+
+def write_screenlayout_option(filename, command):
+    """ write an executable shell script with the screenlayout command """
+    with open(filename, "w") as file:
+        file.write(
+            f"""#!/usr/bin/env bash
+{' '.join(command)}
+wallpaper current # reset wallpaper
+cat "{filename}" > "{localbin}/last_screenlayout"
+chmod u+x "{localbin}/last_screenlayout"
+"""
+        )
+    os.chmod(filename, stat.S_IRWXU)
+
+
+def screenlayout_order_key(filename):
+    filename = filename.split("/")[-1]
+    filename = f"{len(filename.split(']-['))} {filename}"
+    return filename
+
+
+def get_xrandr_screens():
+    """get all possible xrandr names and resolutions for the currently connected screens
+
+    Returns:
+        connected_screens: the connected screen names with their resolution
+        disconnected_screens: the disconnected screen names (with no resolution)
+    """
+    global connected_screens  # TODO remove global
+    xrandr_output = check_output(["xrandr", "-q"]).decode().splitlines()
+    connected_screens = {}
+    disconnected_screens = {}
+    primary = True
+    for i, line in enumerate(xrandr_output):
+        if "disconnected" in line:
+            output = line.split(" ")[0]
+            disconnected_screens[output] = None
+        elif "connected" in line:
+            resolution = list(
+                map(int, xrandr_output[i + 1].strip().split(" ")[0].strip().split("x"))
+            )
+            output = line.split(" ")[0]
+            connected_screens[output] = resolution
+    return connected_screens, disconnected_screens
+
+
+def clean_xrandr_commands():
+    """ clean old xrandr commands that might belong to a different setup """
+    for option in os.listdir(localbin):
+        if option.startswith("[") or option == "same_screenlayout":
+            os.remove(f"{localbin}/{option}")
+
+
+def build_xrandr_commands():
+    """ build xrandr commands and return the filenames of the resulting scripts """
+    filenames = []
+    connected_screens, disconnected_screens = get_xrandr_screens()
+
+    # same on all connected screens:
+    command = ["xrandr"]
+    for output in disconnected_screens.keys():
+        command += ["--output", output, "--off"]
+    for output, resolution in connected_screens.items():
+        mode = tuple_to_res(resolution)
+        command += [
+            "--output",
+            output,
+            "--mode",
+            mode,
+            "--pos",
+            "0x0",
+            "--rotate",
+            "normal",
+        ]
+    same_filename = f"{localbin}/same_screenlayout"
+    write_screenlayout_option(same_filename, command)
+
+    # build screen layouts for all screen permutations:
+    all_keys = set(connected_screens.keys())
+    options = []
+    for i in range(1, len(all_keys) + 1):
+        options += list(permutations(all_keys, i))
+
+    for option in options:
+        command = ["xrandr"]
+        # the following screens are disabled:
+        for output in disconnected_screens:
+            command += ["--output", output, "--off"]
+        for output in connected_screens:
+            if output not in option:
+                command += ["--output", output, "--off"]
+        # the other screens are placed from left to right:
+        start_x = 0
+        primary = True
+        for output in option:
+            resolution = connected_screens[output]
+            mode = tuple_to_res(resolution)
+            pos = tuple_to_res([start_x, 0])
+            command += [
+                "--output",
+                output,
+                "--mode",
+                mode,
+                "--pos",
+                pos,
+                "--rotate",
+                "normal",
+            ]
+            if primary:
+                command += ["--primary"]
+                primary = False
+            filename = f"{localbin}/{'-'.join(f'[{o}]' for o in option)}"
+            start_x += resolution[0]
+
+        # ## add nvidia-setting
+        # def tuple_to_res_nvidia(lst):
+        #     """ convert a tuple to a resolution string like '1920x1080' """
+        #     assert len(lst) == 2
+        #     assert isinstance(lst, (list, tuple))
+        #     return "+" + "+".join(map(str, lst))
+        # start_x = 0
+        # nvidia_setting_head = ' && nvidia-settings --assign CurrentMetaMode="'
+        # for output in option:
+        #     resolution = connected_screens[output]
+        #     nvidia_setting_head += f'{output}: nvidia-auto-select '
+        #     pos = tuple_to_res_nvidia([start_x, 0])
+        #     nvidia_setting_head += f'{pos} '
+        #     nvidia_setting_head += '{ForceFullCompositionPipeline=On}, '
+        #     start_x += resolution[0]
+        # nvidia_setting_head += '"'
+        # command += [nvidia_setting_head]
+
+        write_screenlayout_option(filename, command)
+        filenames.append(filename)
+
+    filenames = sorted(filenames, key=screenlayout_order_key)
+    filenames.insert(0, same_filename)
+    return filenames
+
+
+## Main program
+
+if __name__ == "__main__":
+    clean_xrandr_commands()
+    filenames = build_xrandr_commands()
+    last_filename = f"{localbin}/last_screenlayout"
+    try:
+        last_command = open(last_filename, "r").readlines()[1].strip().split(" ")
+        last_connected_screens = [
+            c for c, m in zip(last_command, last_command[1:]) if m == "--mode"
+        ]  # TODO: fix this mess
+        last_connected_screens_currently_connected = [
+            s in connected_screens for s in last_connected_screens
+        ]
+        if not all(last_connected_screens_currently_connected):
+            raise RuntimeError
+        check_call([last_filename])
+    except:
+        check_call([filenames[-1]])

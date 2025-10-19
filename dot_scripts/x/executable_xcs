@@ -1,0 +1,518 @@
+#!/usr/bin/python3
+#    _____ _     ____  ____  ____  ____  _____
+#   /    // \   /  _ \/  __\/  _ \/  __\/__ __\
+#   |  __\| |   | / \||  \/|| / \||  \/|  / \
+#   | |   | |_/\| |-|||  __/| \_/||    /  | |
+#   \_/   \____/\_/ \|\_/   \____/\_/\_\  \_/
+#
+
+## imports
+
+import argparse
+import contextlib
+import glob
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import time
+
+## Constants
+
+DEFAULT_XRESOURCES = { # Nord
+"color0":   "#3B4252",
+"color1":   "#BF616A",
+"color2":   "#A3BE8C",
+"color3":   "#EBCB8B",
+"color4":   "#81A1C1",
+"color5":   "#B48EAD",
+"color6":   "#88C0D0",
+"color7":   "#E5E9F0",
+"color8":   "#4C566A",
+"color9":   "#BF616A",
+"color10":  "#A3BE8C",
+"color11":  "#EBCB8B",
+"color12":  "#8FBCBB",
+"color13":  "#B48EAD",
+"color14":  "#5E81AC",
+"color15":  "#ECEFF4",
+"alpha":     0.9,
+}
+
+
+## Functions (alphabetic)
+
+def dmenu(list_in, prompt=""):
+    dmenu_in = subprocess.Popen(["echo", "\n".join([str(s) for s in list_in])], stdout=subprocess.PIPE).stdout
+    prompt = [] if not prompt else ["-p", prompt.replace(" ", "-")]
+    try:
+        choice = subprocess.check_output(
+            ["dmenu", "-l", str(len(list_in))] + prompt, stdin=dmenu_in
+        ).decode()[:-1]
+    except subprocess.CalledProcessError:
+        raise RuntimeError("no colorscheme selected")
+    return choice
+
+def generate_pywal(filename="~/.cache/current-wallpaper"):
+    filename = os.path.abspath(os.path.expanduser(filename))
+    if not os.path.exists(filename):
+        raise RuntimeError("could not locate file for current wallpaper")
+    subprocess.call(["/usr/bin/wal", "-c"])
+    subprocess.call(["/usr/bin/wal", "-i", filename])
+
+def get_alpha(xresources):
+    print(f"{100*xresources['alpha']:.0f}")
+
+def list_xresources(xresources_options):
+    keylength = max(len(key) for key in xresources_options)+3
+    for key, value in xresources_options.items():
+        print(f"{key}:{' '*(keylength-len(key))}{value}")
+
+def parse_args(args):
+    parser = argparse.ArgumentParser("xcs: X Color Scheme [and theming]")
+    parser.add_argument("name", type=str, nargs="?", default="",
+        help=("xresources file to load (should be located in ~/.config/Xresources).\n"
+              "Special options:  - 'current' (don't change anything),\n"
+              "                  - 'pywal' (use pywal to generate color scheme)."),
+    )
+    parser.add_argument("-l", "--list", default=False, action="store_true", help="show available colorschemes")
+    parser.add_argument("-a", "--alpha", nargs="?", default=False, help="set window transparency (get when no arguments)")
+    parser.add_argument("-d", "--dmenu", default=False, action="store_true", help="use dmenu to select a colorscheme")
+    parser.add_argument("-g", "--gtk-theme", default="", help="set gtk theme")
+    parsed_args = parser.parse_args(args)
+    return parsed_args
+
+def parse_gtk2rc(filename="~/.gtkrc-2.0"):
+    config = {}
+    filename = os.path.abspath(os.path.expanduser(filename))
+    if not os.path.exists(filename):
+        return config
+    with open(filename, "r") as file:
+        for line in file:
+            if not "=" in line:
+                continue
+            splitted_line = line.split("=")
+            key = splitted_line[0].strip()
+            value = "=".join(splitted_line[1:]).strip()
+            config[key] = value
+    return config
+
+def parse_gtk3rc(filename="~/.config/gtk-3.0/settings.ini"):
+    config = {}
+    filename = os.path.abspath(os.path.expanduser(filename))
+    if not os.path.exists(filename):
+        return config
+    with open(filename, "r") as file:
+        for line in file:
+            line = line.strip()
+            if line.startswith("[") and line.endswith("]"):
+                localconfig = config[line[1:-1]] = {}
+                continue
+            if not "=" in line:
+                continue
+            splitted_line = line.split("=")
+            key = splitted_line[0].strip()
+            value = "=".join(splitted_line[1:]).strip()
+            localconfig[key] = value
+    return config
+
+def parse_kvantum(filename="~/.config/Kvantum/kvantum.kvconfig"):
+    config = parse_gtk3rc(filename)
+    if "General" not in config:
+        config["General"] = {}
+    if "theme" not in config["General"]:
+        config["General"]["theme"] = "KvArcDark#" # TODO: remove hard coded option here
+    return config
+
+def parse_xresources(xresources_options, name):
+    filename = os.path.abspath(os.path.expanduser(xresources_options[name]))
+    xresources = {k: v for k, v in DEFAULT_XRESOURCES.items()}
+    if not os.path.exists(filename):
+        return xresources
+    with open(filename, "r") as file:
+        for line in file:
+            if not ":" in line:
+                continue
+            splitline = line.split(":")
+            key = splitline[0].strip()
+            value = ":".join(splitline[1:]).strip()
+            while key and key[0] in (".", "*"):
+                key = key[1:]
+            if not key:
+                continue
+            try:
+                value = float(value)
+            except:
+                pass
+            xresources[key] = value
+    if not isinstance(xresources.get("alpha"), float):
+        xresources["alpha"] = DEFAULT_XRESOURCES['alpha']
+
+    # Remove GTK or Kvantum (QT) theme from Xresources when 'current' was chosen:
+    if name == "current":
+        if "gtktheme" in xresources:
+            del xresources["gtktheme"]
+        if "kvtheme" in xresources:
+            del xresources["kvtheme"]
+
+    # get GTK theme from gtkrc2.0 if no gtktheme is specified in xresources:
+    if "gtktheme" not in xresources:
+        xsettingsconfig = parse_xsettings()
+        xresources["gtktheme"] = xsettingsconfig["Net/ThemeName"]
+
+    # get Kvantum (QT) theme from kvantum.kvconfig if no kvtheme is specified in xresources:
+    if "kvtheme" not in xresources:
+        kvconfig = parse_kvantum()
+        xresources["kvtheme"] = kvconfig["General"]["theme"]
+
+    return xresources
+
+def parse_xresources_options(dirname="~/.config/Xresources"):
+    dirname = os.path.abspath(os.path.expanduser(dirname))
+    filenames = {'current' : os.path.expanduser("~/.Xresources")}
+    filenames.update({fn:os.path.join(dirname, fn) for fn in sorted(os.listdir(dirname)) if fn.lower() != "readme.md"})
+    filenames.update({'pywal': os.path.expanduser("~/.cache/wal/colors.Xresources")})
+    return filenames
+
+def parse_xsettings(filename="~/.config/xsettingsd/xsettingsd.conf"):
+    config = {}
+    filename = os.path.abspath(os.path.expanduser(filename))
+    dirname = os.path.dirname(filename)
+    if not os.path.exists(dirname):
+        os.makedirs(dirname)
+    with open(filename, "a") as file: # create file if it does not exist
+        pass
+    with open(filename, "r") as file:
+        for line in file:
+            if not " " in line:
+                continue
+            splitted_line = line.split(" ")
+            key = splitted_line[0].strip()
+            value = " ".join(splitted_line[1:]).strip()
+            config[key] = value
+    if not config:
+        gtk3config = parse_gtk3rc()
+        config["Net/ThemeName"] = gtk3config["Settings"]["gtk-theme-name"]
+    if not config:
+        gtk2config = parse_gtk2rc()
+        config["Net/ThemeName"] = gtk2config["gtk-theme-name"]
+    if not config: # TODO: remove hard coded option here:
+        config["Net/ThemeName"] = '"Arc-Dark"'
+    if not config["Net/ThemeName"][0] == '"':
+        config["Net/ThemeName"] = '"' + config["Net/ThemeName"]
+    if not config["Net/ThemeName"][-1] == '"':
+        config["Net/ThemeName"] = config["Net/ThemeName"] + '"'
+    return config
+
+def update_dwm():
+    update_dwm_colors()
+    update_dwm_status()
+
+def update_dwm_colors():
+    print(f"updating dwm colors...")
+    with open(os.devnull, "w") as file:
+        subprocess.call(["xsetroot", "-name", "fsignal:3"], stdout=file, stderr=file)
+
+def update_dwm_status():
+    with open(os.devnull, "w") as file:
+        subprocess.Popen(["dwm_status"], stdout=file, stderr=file)
+
+def update_kvantum(xresources):
+    kvtheme = xresources['kvtheme']
+    print(f"updating Kvantum (QT) theme to '{kvtheme}'...")
+    with open(os.devnull, "w") as file:
+        subprocess.call(["kvantummanager", "--set", kvtheme], stdout=file, stderr=file)
+    update_qt5ct()
+
+def update_picom(filename="~/.cache/xcs/picom.conf"):
+    filename = os.path.abspath(os.path.expanduser(filename))
+    if not os.path.exists(filename):
+        return
+    print(f"restarting picom with custom config file at '{filename}'...")
+    subprocess.call(["killall", "picom"])
+    time.sleep(0.1)
+    subprocess.Popen(["picom", "--config", filename])
+
+def update_qt5ct(filename="~/.config/qt5ct/qt5ct.conf"):
+    filename = os.path.abspath(os.path.expanduser(filename))
+    print(f"updating qt5ct...")
+    # just touching the file is enough to let qt5ct know the qt apps should be updated:
+    subprocess.Popen(["touch", filename])
+
+def update_terminal(xresources):
+    print(f"updating terminal colors...")
+    color = f"\033]4;0;{xresources['color0']};{xresources['alpha']}\033\\"
+    for term in glob.glob("/dev/pts/*"):
+        if term != "/dev/pts/ptmx":
+            with open(term, "w") as file:
+                file.write(color)
+    color = f"\033]11;[{xresources['alpha']}]{xresources['color0']}\033\\"
+    for term in glob.glob("/dev/pts/*"):
+        if term != "/dev/pts/ptmx":
+            with open(term, "w") as file:
+                file.write(color)
+    colors = [f"\033]4;{i};{xresources[f'color{i}']}\033\\" for i in range(16)]
+    for term in glob.glob("/dev/pts/*"):
+        if term != "/dev/pts/ptmx":
+            with open(term, "w") as file:
+                file.write("".join(colors))
+
+def update_xrdb(filename="~/.Xresources"):
+    filename = os.path.abspath(os.path.expanduser(filename))
+    print(f"updating xrdb database with '{filename}'...")
+    subprocess.call(["xrdb", filename])
+
+def update_xsettings(filename="~/.config/xsettingsd/xsettingsd.conf"):
+    filename = os.path.abspath(os.path.expanduser(filename))
+    if not os.path.exists(filename):
+        return
+    print(f"updating xsettings with new config file at '{filename}'...")
+    subprocess.Popen(["killall", "-HUP", "xsettingsd"])
+
+def set_alpha(xresources, value):
+    alpha = xresources["alpha"]
+    if value.startswith("+"):
+        alpha = min(1.0, alpha+float(value[1:])/100)
+    elif value.startswith("-"):
+        alpha = max(0.0, alpha-float(value[1:])/100)
+    else:
+        alpha = float(value)/100
+    xresources["alpha"] = alpha
+    write_xresources(xresources)
+    write_picom_config(xresources)
+    update_xrdb()
+    # update_terminal(xresources)
+    write_alacritty_config(xresources)
+    update_dwm_status()
+    update_picom()
+
+def set_gtk(xresources, value):
+    xresources["gtktheme"] = value
+    #write_gtk2rc(xresources)
+    #write_gtk3rc(xresources)
+    write_xsettings(xresources)
+
+def set_xcs(xresources):
+    #write_gtk3rc(xresources)
+    #write_gtk2rc(xresources)
+    write_xsettings(xresources)
+    write_zathura_recolor(xresources)
+    write_xresources(xresources)
+    write_rofi_colorscheme(xresources)
+    write_picom_config(xresources)
+    update_kvantum(xresources)
+    update_xsettings()
+    update_xrdb()
+    # update_terminal(xresources)
+    write_alacritty_config(xresources)
+    update_dwm()
+    update_picom()
+
+def write_gtk2rc(xresources, filename="~/.gtkrc-2.0"):
+    gtktheme = xresources['gtktheme']
+    filename = os.path.abspath(os.path.expanduser(filename))
+    print(f"writing GTK2 theme '{gtktheme}' to '{filename}'...")
+    config = parse_gtk2rc(filename)
+    config["gtk-theme-name"] = f'"{gtktheme}"'
+    with open(filename, "w") as file:
+        for key, value in config.items():
+            file.write(f"{key}={value}\n")
+
+def write_gtk3rc(xresources, filename="~/.config/gtk-3.0/settings.ini"):
+    gtktheme = xresources['gtktheme']
+    filename = os.path.abspath(os.path.expanduser(filename))
+    print(f"writing GTK3 theme '{gtktheme}' to '{filename}'...")
+    config = parse_gtk3rc(filename)
+    config["Settings"]["gtk-theme-name"] = gtktheme
+    with open(filename, "w") as file:
+        for section, localconfig in config.items():
+            if localconfig:
+                file.write(f"[{section}]\n")
+            for key, value in localconfig.items():
+                file.write(f"{key}={value}\n")
+            if localconfig:
+                file.write("\n")
+
+def write_alacritty_config(xresources, filename="~/.cache/alacritty/alacritty.toml"):
+    filename = os.path.abspath(os.path.expanduser(filename))
+    dirname = os.path.dirname(filename)
+    if not os.path.isdir(dirname):
+        os.makedirs(dirname)
+    master_filename = os.path.abspath(os.path.expanduser("~/.config/alacritty/alacritty.toml"))
+    print(f"writing new alacritty config to '{filename}'...")
+    normal, bright, dim = False, False, False
+    with open(master_filename, "r") as src:
+        with open(filename, "w") as dst:
+            for line in src:
+                line = line.strip()
+                if line == '[colors.normal]':
+                    normal, bright, dim = True, False, False
+                if line == '[colors.bright]':
+                    normal, bright, dim = False, True, False
+                if line == '[colors.dim]':
+                    normal, bright, dim = False, False, True
+                if line.startswith("opacity ="):
+                    line = f"opacity = {xresources['alpha']:.2f}\n"
+                elif line.startswith("background ="):
+                    try:
+                        line = f"background = '{xresources['colorbackground']}'\n"
+                    except:
+                        line = f"background = '{xresources['color0']}'\n"
+                elif line.startswith("foreground ="):
+                    try:
+                        line = f"foreground = '{xresources['colorforeground']}'\n"
+                    except:
+                        line = f"foreground = '{xresources['color15']}'\n"
+                elif line.startswith("dim_foreground ="):
+                    try:
+                        line = f"dim_foreground = '{xresources['colorforeground']}'\n"
+                    except:
+                        line = f"dim_foreground = '{xresources['color8']}'\n"
+                elif line.startswith("bright_foreground ="):
+                    try:
+                        line = f"bright_foreground = '{xresources['colorforeground']}'\n"
+                    except:
+                        line = f"bright_foreground = '{xresources['color7']}'\n"
+                # elif line.startswith("cursor ="):
+                #     try:
+                #         line = f"cursor = '{xresources['colorcursor']}'\n"
+                #     except:
+                #         pass
+                elif (normal or dim) and line.startswith("black = "):
+                    line = f"black = '{xresources['color0']}'\n"
+                elif bright and line.startswith("black = "):
+                    line = f"black = '{xresources['color8']}'\n"
+                elif (normal or dim) and line.startswith("red = "):
+                    line = f"red = '{xresources['color1']}'\n"
+                elif bright and line.startswith("red = "):
+                    line = f"red = '{xresources['color9']}'\n"
+                elif (normal or dim) and line.startswith("green = "):
+                    line = f"green = '{xresources['color2']}'\n"
+                elif bright and line.startswith("green = "):
+                    line = f"green = '{xresources['color10']}'\n"
+                elif (normal or dim) and line.startswith("yellow = "):
+                    line = f"yellow = '{xresources['color3']}'\n"
+                elif bright and line.startswith("yellow = "):
+                    line = f"yellow = '{xresources['color11']}'\n"
+                elif (normal or dim) and line.startswith("blue = "):
+                    line = f"blue = '{xresources['color4']}'\n"
+                elif bright and line.startswith("blue = "):
+                    line = f"blue = '{xresources['color12']}'\n"
+                elif (normal or dim) and line.startswith("magenta = "):
+                    line = f"magenta = '{xresources['color5']}'\n"
+                elif bright and line.startswith("magenta = "):
+                    line = f"magenta = '{xresources['color13']}'\n"
+                elif (normal or dim) and line.startswith("cyan = "):
+                    line = f"cyan = '{xresources['color6']}'\n"
+                elif bright and line.startswith("cyan = "):
+                    line = f"cyan = '{xresources['color14']}'\n"
+                elif (normal or dim) and line.startswith("white = "):
+                    line = f"white = '{xresources['color7']}'\n"
+                elif bright and line.startswith("white = "):
+                    line = f"white = '{xresources['color15']}'\n"
+                dst.write(f"{line}\n")
+
+def write_picom_config(xresources, filename="~/.cache/xcs/picom.conf"):
+    filename = os.path.abspath(os.path.expanduser(filename))
+    print(f"writing new picom config to '{filename}'...")
+    alpha = xresources["alpha"]
+    dirname = os.path.dirname(filename)
+    if not os.path.isdir(dirname):
+        os.makedirs(dirname)
+    master_filename = os.path.expanduser("~/.config/picom/picom.conf")
+    with open(master_filename, "r") as file:
+        config = file.read()
+    new_config = re.sub('"[ ]*[0-9]*[ ]*:', f'"{100*alpha:.0f}:', config)
+    with open(filename, "w") as file:
+        file.write(new_config)
+
+def write_rofi_colorscheme(xresources, filename="~/.config/rofi/xresources-colors.rasi"):
+    filename = os.path.abspath(os.path.expanduser(filename))
+    print(f"writing rofi color config to '{filename}'...")
+    alpha = hex(int(255*xresources["alpha"]))[2:]
+    colors = {
+        "text" : xresources["color15"],
+        "highlight": xresources["color6"],
+        "green": xresources["color2"],
+        "dark": xresources["color0"]+alpha,
+    }
+    content = "* " + json.dumps(colors).replace("{","{\n ").replace(",",";\n").replace("}",";\n}").replace('"', "")
+    with open(filename, "w") as file:
+        file.write(content)
+
+def write_xresources(xresources, filename="~/.Xresources"):
+    filename = os.path.abspath(os.path.expanduser(filename))
+    print(f"writing new Xresources to '{filename}'...")
+    with open(filename, "w") as file:
+        for key, value in xresources.items():
+            if key == 'alpha':
+                file.write(f"*{key}: {value:.2f}\n")
+            elif isinstance(value, float):
+                file.write(f"*{key}: {value:.0f}\n")
+            else:
+                file.write(f"*{key}: {value}\n")
+
+def write_xsettings(xresources, filename="~/.config/xsettingsd/xsettingsd.conf"):
+    gtktheme = xresources['gtktheme']
+    filename = os.path.abspath(os.path.expanduser(filename))
+    print(f"writing GTK theme '{gtktheme}' to '{filename}'...")
+    config = parse_xsettings(filename)
+    config["Net/ThemeName"] = f'"{gtktheme}"'.replace('""','"')
+    with open(filename, "w") as file:
+        for key, value in config.items():
+            file.write(f"{key} {value}\n")
+
+def write_zathura_recolor(xresources, filename="~/.config/zathura/recolor"):
+    filename = os.path.abspath(os.path.expanduser(filename))
+    print(f"writing new zathura color config to '{filename}'...")
+    darkcolor = xresources["color15"]
+    lightcolor = xresources["color0"]
+    with open(filename, "w") as file:
+        file.write(f'set recolor-darkcolor "{darkcolor}"\nset recolor-lightcolor "{lightcolor}"')
+
+
+## main program
+
+if __name__ == "__main__":
+  try:
+        if not os.path.exists(os.path.expanduser("~/.Xresources")):
+            shutil.copy(os.path.expanduser("~/.config/Xresources/nord"), os.path.expanduser("~/.Xresources"))
+        args = parse_args(sys.argv[1:])
+        xresources_options = parse_xresources_options()
+        xresources = parse_xresources(xresources_options, 'current')
+
+        if args.alpha is None:
+            exit(get_alpha(xresources))
+
+        if args.alpha:
+            exit(set_alpha(xresources, args.alpha))
+
+        if args.gtk_theme:
+            exit(set_gtk(xresources, args.gtk_theme))
+
+        if args.list:
+            exit(list_xresources(xresources_options))
+
+        if not args.name or args.dmenu:
+            args.name = dmenu(xresources_options)
+
+        if args.name == "pywal" or args.name == "wal":
+            args.name = "pywal"
+            generate_pywal()
+
+        if args.name not in xresources_options:
+            sys.stdout = sys.stderr
+            print(f"The theme with name '{args.name}' is not available.\nAvailable theme names:\n")
+            list_xresources(xresources_options)
+            exit(1)
+
+        alpha = xresources.get('alpha', 0.9)
+        xresources = parse_xresources(xresources_options, args.name)
+        xresources['alpha'] = alpha
+
+        exit(set_xcs(xresources))
+  except Exception as e:
+      sys.stdout = sys.stderr
+      print(e)
