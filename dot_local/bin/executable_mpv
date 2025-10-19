@@ -1,0 +1,24 @@
+#!/usr/bin/python3
+#    _____ _     ____  ____  ____  ____  _____
+#   /    // \   /  _ \/  __\/  _ \/  __\/__ __\
+#   |  __\| |   | / \||  \/|| / \||  \/|  / \
+#   | |   | |_/\| |-|||  __/| \_/||    /  | |
+#   \_/   \____/\_/ \|\_/   \____/\_/\_\  \_/
+#
+""" launch mpv over a different random socket each time """
+
+import sys
+import secrets
+from subprocess import call
+
+random_socketname = f"/tmp/mpvsocket{secrets.token_hex(4)}"
+
+# if not [key for key in sys.argv if "--player-operation-mode" in key]:
+#     sys.argv.append("--player-operation-mode=pseudo-gui")
+
+if not [key for key in sys.argv if "--input-ipc-server" in key]:
+    sys.argv.append(f"--input-ipc-server={random_socketname}")
+
+call(["/usr/bin/mpv"] + sys.argv[1:])
+
+

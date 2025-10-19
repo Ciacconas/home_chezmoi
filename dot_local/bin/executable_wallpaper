@@ -1,0 +1,100 @@
+#!/usr/bin/python3
+#    _____ _     ____  ____  ____  ____  _____
+#   /    // \   /  _ \/  __\/  _ \/  __\/__ __\
+#   |  __\| |   | / \||  \/|| / \||  \/|  / \
+#   | |   | |_/\| |-|||  __/| \_/||    /  | |
+#   \_/   \____/\_/ \|\_/   \____/\_/\_\  \_/
+#
+
+import os
+import sys
+import shutil
+import random
+import subprocess
+import urllib.request
+
+def usage():
+    print("wallpaper [current|next|previous|random|[idx]|[path]|[url]]")
+    exit(1)
+
+def set_current_wallpaper():
+    # return subprocess.call(["feh", "--bg-scale", "--no-fehbg", CURRENT_WALLPAPER])
+    return subprocess.call(["feh", "--bg-fill", "--no-xinerama", CURRENT_WALLPAPER])
+
+def save_current_wallpaper_path(path):
+    with open(os.path.expanduser("~/.cache/current-wallpaper-path"), "w") as file:
+        file.write(path)
+
+def download_wallpaper(url):
+    try:
+        os.makedirs(os.path.expanduser("~/.local/share/downloaded-wallpapers"))
+    except FileExistsError:
+        pass
+    path = os.path.join(os.path.expanduser("~/.local/share/downloaded-wallpapers"), url.split("/")[-1])
+    if not os.path.exists(path):
+        urllib.request.urlretrieve(url, filename=path)
+    if os.path.isfile(path) and path != CURRENT_WALLPAPER:
+        shutil.copy(path, CURRENT_WALLPAPER)
+        save_current_wallpaper_path(url)
+
+def copy_wallpaper(path):
+    try:
+        os.makedirs(os.path.expanduser("~/.cache"))
+    except FileExistsError:
+        pass
+    if os.path.isfile(path) and path != CURRENT_WALLPAPER:
+        shutil.copy(path, CURRENT_WALLPAPER)
+        save_current_wallpaper_path(path)
+
+CURRENT_WALLPAPER = os.path.expanduser("~/.cache/current-wallpaper")
+try:
+    CURRENT_WALLPAPER_PATH = open(os.path.expanduser("~/.cache/current-wallpaper-path")).read().split("\n")[0]
+    WALLPAPERS = [CURRENT_WALLPAPER_PATH]
+except FileNotFoundError:
+    CURRENT_WALLPAPER_PATH = ""
+    WALLPAPERS = []
+WALLPAPERS += [l for l in open(os.path.expanduser("~/.scripts/wallpaper/wallpapers.txt")).read().split("\n") if l]
+WALLPAPERS += [os.path.expanduser("~/.local/share/wallpapers/") + name  for name in os.listdir(os.path.expanduser("~/.local/share/wallpapers")) if name.endswith(".jpg") or name.endswith(".png")]
+WALLPAPERS = sorted(set(WALLPAPERS), key=lambda x: x.split("/")[-1])
+try:
+    CURRENT_WALLPAPER_IDX = WALLPAPERS.index(CURRENT_WALLPAPER_PATH)
+except ValueError:
+    CURRENT_WALLPAPER_IDX = -1
+
+if len(sys.argv) != 2:
+    usage()
+
+arg = sys.argv[1]
+path = ""
+
+try:
+    idx = int(arg)
+except ValueError:
+    idx = float("nan")
+
+if idx == idx: # idx != nan
+    path = WALLPAPERS[idx]
+elif arg == "current":
+    if not os.path.isfile(CURRENT_WALLPAPER):
+        path = CURRENT_WALLPAPER_PATH
+    else:
+        path = CURRENT_WALLPAPER
+elif arg == "next":
+    path = WALLPAPERS[(CURRENT_WALLPAPER_IDX+1)%len(WALLPAPERS)]
+elif arg == "previous":
+    path = WALLPAPERS[(CURRENT_WALLPAPER_IDX-1)%len(WALLPAPERS)]
+elif arg == "random":
+    path = random.choice(WALLPAPERS)
+else:
+    path = arg
+
+if not path:
+    path = random.choice(WALLPAPERS)
+
+if path.startswith("http://") or path.startswith("https://"):
+    download_wallpaper(path)
+else:
+    path = os.path.abspath(os.path.expanduser(path))
+    copy_wallpaper(path)
+
+exit(set_current_wallpaper())

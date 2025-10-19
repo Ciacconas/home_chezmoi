@@ -1,0 +1,33 @@
+#!/bin/sh
+#    _____ _     ____  ____  ____  ____  _____
+#   /    // \   /  _ \/  __\/  _ \/  __\/__ __\
+#   |  __\| |   | / \||  \/|| / \||  \/|  / \
+#   | |   | |_/\| |-|||  __/| \_/||    /  | |
+#   \_/   \____/\_/ \|\_/   \____/\_/\_\  \_/
+#
+# NOTE: this script should be placed in your path such that it takes
+#       priority over the nvim binary /usr/bin/nvim.
+
+if [ -f "$HOME/.local/share/bob/nightly/bin/nvim" ]; then
+    vim="$HOME/.local/share/bob/nightly/bin/nvim";
+else
+    vim="/usr/bin/nvim";
+fi
+
+if [ ! "$2" ]; then
+    # if the argument does not exist and if theres an executable in path
+    # open the executable for editing.
+    if [ ! -f "$1" ]; then
+        if exe="$(which "$1" 2> /dev/null)"; then
+            if [ -f "$exe" ]; then
+                echo "$exe"
+		NVIM_APPNAME=nvim_choma $vim "$exe"
+                exit 0
+            fi
+        fi
+    fi
+
+fi
+
+# all other cases, just open neovim with all the arguments supplied.
+NVIM_APPNAME=nvim_choma $vim "$@"

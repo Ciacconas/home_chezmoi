@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+
+CACHEDIR="$HOME/.cache/weatherreport"
+mkdir -p "$CACHEDIR"
+
+# first download to temp file:
+curl -s wttr.in | sed 's/↑/⬆/g' | sed 's/→/➡/g' | sed 's/↓/⬇/g' | sed 's/←/⬅/g' > /tmp/weatherreport
+
+# check for errors in downloaded file:
+if grep Sorry /tmp/weatherreport &> /dev/null; then
+    >&2 echo "couldn't update weatherreport"
+    exit 1
+fi
+if grep Internal /tmp/weatherreport &> /dev/null; then
+    >&2 echo "couldn't update weatherreport"
+    exit 1
+fi
+if grep Time-out /tmp/weatherreport &> /dev/null; then
+    >&2 echo "couldn't update weatherreport"
+    exit 1
+fi
+if [[ $(cat /tmp/weatherreport | wc -l) < 3 ]]; then
+    >&2 echo "couldn't update weatherreport"
+    exit 1
+fi
+
+# if no observed errors, move downloaded file to cache:
+mv /tmp/weatherreport "$CACHEDIR/full"
+printf "%s" "$(sed '16q;d' "$CACHEDIR/full" | grep -wo "[0-9]*%" | sort -n | sed -e '$!d' | sed -e "s/^/☔ /g" | tr -d '\n')" | sed 's|☔||g' > "$CACHEDIR/short"
+sed '13q;d' "$CACHEDIR/full" | grep -o "m\\(-\\)*[0-9]\\+" | sort -n -t 'm' -k 2n | sed -e 1b -e '$!d' | tr '\n|m' ' ' | awk '{print "  ",$1 "°","",$2 "°"}' >> "$CACHEDIR/short"
+cat $CACHEDIR/short
+cat $CACHEDIR/full
+
+# if asked to block, do not exit yet:
+if [[ $1 == "--block" ]]; then
+    read
+    exit
+fi
+
+# else, just update the status bar:
+dwm_status
