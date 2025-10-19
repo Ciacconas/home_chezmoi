@@ -1,0 +1,9 @@
+[Desktop Entry]
+Encoding=UTF-8
+Version=1.0
+Type=Application
+NoDisplay=true
+Exec=/opt/lumerical/v221/bin/fdtd-solutions-app %f
+Name=fdtd-solutions
+Comment=fdtd-solutions
+Icon=/opt/lumerical/v221/share/fdtd.png
