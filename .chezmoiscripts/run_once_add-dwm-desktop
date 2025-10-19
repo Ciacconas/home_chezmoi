@@ -1,0 +1,41 @@
+#!/bin/sh
+# Create /usr/share/xsessions/dwm.desktop if it doesn't already exist.
+# Prompts for sudo when needed.
+
+set -eu
+
+DESKTOP_DIR="/usr/share/xsessions"
+DESKTOP_FILE="$DESKTOP_DIR/dwm.desktop"
+
+CONTENT="[Desktop Entry]
+Name=dwm
+Comment=Executes dwm
+Exec=/usr/local/bin/dwm
+Type=Application
+"
+
+# If the file already exists, do nothing.
+if [ -f "$DESKTOP_FILE" ]; then
+  echo "Found existing $DESKTOP_FILE. Nothing to do."
+  exit 0
+fi
+
+echo "This script will create: $DESKTOP_FILE"
+echo "You may be prompted for your password."
+
+# Ensure the target directory exists
+if [ ! -d "$DESKTOP_DIR" ]; then
+  sudo mkdir -p "$DESKTOP_DIR"
+fi
+
+# Create a temp file with the content
+tmpfile="$(mktemp)"
+printf "%s" "$CONTENT" > "$tmpfile"
+
+# Install atomically with correct perms/ownership
+sudo mv "$tmpfile" "$DESKTOP_FILE"
+sudo chown root:root "$DESKTOP_FILE"
+sudo chmod 0644 "$DESKTOP_FILE"
+
+echo "Created $DESKTOP_FILE"
+
