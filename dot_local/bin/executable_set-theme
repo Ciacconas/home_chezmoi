@@ -1,0 +1,29 @@
+#!/bin/bash
+
+if [[ -z $1 && $1 != "CNCLD" ]]; then
+  echo "Usage: omarchy-theme-set <theme-name>"
+  exit 1
+fi
+
+THEMES_DIR="$HOME/.config/themes"
+CURRENT_THEME_DIR="$HOME/.config/current/theme"
+
+THEME_NAME=$(echo "$1" | sed -E 's/<[^>]+>//g' | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
+THEME_PATH="$THEMES_DIR/$THEME_NAME"
+
+
+# Check if the theme entered exists
+if [[ ! -d "$THEME_PATH" ]]; then
+  echo "Theme '$THEME_NAME' does not exist in $THEMES_DIR"
+  exit 1
+fi
+
+# Update theme symlinks
+ln -nsf "$THEME_PATH" "$CURRENT_THEME_DIR"
+echo ln -nsf "$THEME_PATH" "$CURRENT_THEME_DIR"
+
+
+## Alacritty
+touch ~/.config/alacritty/alacritty.toml
+echo touch ~/.config/alacritty/alacritty.toml
+
