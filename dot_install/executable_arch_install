@@ -423,7 +423,7 @@ pacman_install xorg-xinput
 ## emulate mouse clicks and more from within python
 yay_install python-pyautogui
 ## xsettingsd: immediately apply changes in GTK theme
-pacman_install xsettingsd
+yay_install xsettingsd-git
 ## server access control for x
 pacman_install xorg-xhost
 ## colorful emoji on st build
@@ -611,6 +611,7 @@ yay_install nordic-theme-git
 pacman_install lxappearance
 ## gtk look-and-feel for qt (comes with kvantummanager = lxappearance for qt apps):
 pacman_install kvantum
+pacman_install kvantum-qt5
 ## needed to enable kvantum:
 pacman_install qt5ct
 pacman_install qt6ct
@@ -737,65 +738,72 @@ pacman_install blueman # or blueberry?
 
 ## fontconfig should already be installed, but just to be sure:
 pacman_install fontconfig
-## dejavu font: inkscape dependency (fully blocked by my fontconfig, replaced by Bitstream Vera):
-pacman_install ttf-dejavu
-## bitstream vera: alternative to dejavu (not blocked by my fontconfig, replaces DejaVu):
-pacman_install ttf-bitstream-vera
-## cantarell fonts: gtk3 dependency (fully blocked by my fontconfig):
-pacman_install cantarell-fonts
-## adobe fonts: nemo and other GNOME apps dependency (fully blocked by my fontconfig):
-pacman_install adobe-source-code-pro-fonts
-## liberation fonts: chromium, firefox and mplayer dependency (currently my default fonts):
-pacman_install ttf-liberation
+
+
+## Must install fonts
+
 ## ubuntu fonts: a beautiful mono and sans font
 pacman_install ttf-ubuntu-font-family
 ## ubuntu mono nerd exchange to use individually or just to add icons to monospace
 pacman_install ttf-ubuntu-mono-nerd
 
-# gnu free fonts: optional vlc dependency (partly blocked by my fontconfig):
-pacman_install gnu-free-fonts
-# gnome core fontset (partly blocked by my fontconfig):
-pacman_install gsfonts
-## a nice monospace font with ligatures (partly blocked by my fontconfig):
-pacman_install ttf-fira-code
-## a patched fira code font with nerd font glyphs (partly blocked by my fontconfig):
-# yay_install nerd-fonts-fira-code
-## nice serif (Linux Libertine) and sans-serif (Linux Biolinum) fonts (not blocked by my fontconfig):
- pacman_install ttf-linux-libertine
-## recommended font package for compatibility with MS Office (fully blocked and partly aliased by my fontconfig):
-#yay_install ttf-ms-fonts
-## recommended font package for compatibility with MS Office (fully blocked and partly aliased by my fontconfig):
-#yay_install ttf-vista-fonts
-## carlito: free font alternative to calibri
-pacman_install ttf-carlito
-## caladea: free font alternative to cambria
-#pacman_install ttf-caladea
-## alternative nice font package (partly blocked by my fontconfig):
-#pacman_install ttf-droid
-## yet another nice monospace font:
-#yay_install ttf-inconsolata-g
-## Chinese, Japanese, Korean, HK Chinese all in one
+## liberation fonts: chromium, firefox and mplayer dependency (currently my default fonts):
+pacman_install ttf-liberation
+
+## Chinese, Japanese, Korean, HK Chinese all in one. Config with SC priotized in fontconfig
 yay_install adobe-source-han-sans-otc-fonts
 yay_install adobe-source-han-serif-otc-fonts
-## adobe simplified chinese fonts (sans):
-# pacman_install adobe-source-han-sans-cn-fonts
-## adobe traditional chinese fonts (sans):
-#pacman_install adobe-source-han-sans-tw-fonts
-## adobe simplified chinese fonts (serif):
-# pacman_install adobe-source-han-serif-cn-fonts
-## adobe traditional chinese fonts (serif):
-#pacman_install adobe-source-han-serif-tw-fonts
+
+## Joypixels color emojis:
+yay_install ttf-joypixels
+
+## World language fonts. For matching all languages
+pacman_install noto-fonts # optial dpendency noto-fonts-cjk,noto-fonts-emoji,noto-fonts-extra(semi-bold...)
+
+
+## dejavu font: inkscape dependency (fully blocked by my fontconfig, replaced by Bitstream Vera):
+# pacman_install ttf-dejavu # BLOCKED so no need to install
+## bitstream vera: alternative to dejavu (not blocked by my fontconfig, replaces DejaVu):
+pacman_install ttf-bitstream-vera
+
 ## awesome terminal fonts: nice icons (lsd and dwm [my build] dependency):
+## But it's covered by nerd fonts so Ubuntu Mono Nerd Font will replace it
 pacman_install awesome-terminal-fonts
-## powerline symbols: essential symbols for powerlines in zsh/bash/vim/...
-#yay_install otf-powerline-symbols-git
+
+## nice serif (Linux Libertine) and sans-serif (Linux Biolinum) fonts (not blocked by my fontconfig):
+# pacman_install ttf-linux-libertine
+## Forks of Linux Libertine and Linux Biolinum, with extended math support
+pacman_install ttf-libertinus
+
+## Replacement
+## sans-serif: gtk3 dependency (fully blocked by my fontconfig):
+pacman_install cantarell-fonts
+## replaced by Liberation Sans
+
+## carlito: free font alternative to calibri
+pacman_install ttf-carlito
+
+## Replacement
+# gnome core fontset (partly blocked by my fontconfig)
+pacman_install gsfonts
+
+## adobe fonts: nemo and other GNOME apps dependency (fully blocked by my fontconfig):
+pacman_install adobe-source-code-pro-fonts
+
+## gnu free fonts: firefox dependency (partly blocked by my fontconfig):
+pacman_install gnu-free-fonts
+
+## recommended font package for compatibility with MS Office (fully blocked and partly aliased by my fontconfig):
+#yay_install ttf-ms-fonts
+
+## recommended font package for compatibility with MS Office (fully blocked and partly aliased by my fontconfig):
+#yay_install ttf-vista-fonts
+
 ## devicons: more symbols (used in lsd)
 #yay_install ttf-devicons
 ## hack nerd fonts: patched font with nice icons (recommended for lsd):
 #yay_install nerd-fonts-hack
 # pacman_install ttf-hack-nerd
-## Joypixels color emojis:
-yay_install ttf-joypixels
 ## google color emojis (blocked by my fontconfig):
 #pacman_install noto-fonts-emoji
 ## black and white emojis and symbols (blocked by my fontconfig):
@@ -872,6 +880,8 @@ pacman_install fd
 pacman_install fzf
 ## rsync: safe and secure copy & backup
 pacman_install rsync
+## toml yaml ... cli processer
+pacman_install yq
 ## atool gives information about archives
 #pacman_install atool
 ## glu: opengl binaries

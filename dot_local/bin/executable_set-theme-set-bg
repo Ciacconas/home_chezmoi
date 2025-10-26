@@ -1,0 +1,113 @@
+#!/usr/bin/python3
+"""
+set-wallpaper: cycle or randomize wallpapers using feh.
+
+- Reads images from $HOME/.cache/wallpapers (only .png and .jpg).
+- Stores current selection at $HOME/.cache/current-wallpaper-path.
+- Actions: next | previous | random
+"""
+
+import sys
+import random
+import subprocess
+from pathlib import Path
+
+WALLPAPERS_DIR = Path.home() / ".cache" / "wallpapers"
+STATE_FILE = Path.home() / ".cache" / "current-wallpaper-path"
+ALLOWED_EXTS = {".png", ".jpg", "jpeg"}
+
+
+def list_images():
+    if not WALLPAPERS_DIR.exists():
+        return []
+    images = [
+        p.resolve()
+        for p in WALLPAPERS_DIR.iterdir()
+        if p.is_file() and p.suffix.lower() in ALLOWED_EXTS
+    ]
+    # Sort for deterministic next/previous order
+    images.sort(key=lambda p: p.name.lower())
+    return images
+
+
+def run_feh(image_path: Path):
+    try:
+        # subprocess.run(["feh", str(image_path)], check=True)
+
+        subprocess.call(["feh", "--bg-fill", "--no-xinerama", str(image_path)])
+        # subprocess.call(["feh", "--bg-scale", "--no-fehbg", str(image_path])
+    except FileNotFoundError:
+        print("Error: 'feh' not found in PATH. Please install 'feh'.", file=sys.stderr)
+        sys.exit(1)
+    except subprocess.CalledProcessError as e:
+        print(f"Error: feh failed with exit code {e.returncode}.", file=sys.stderr)
+        sys.exit(e.returncode)
+
+
+def write_state(path: Path):
+    STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    STATE_FILE.write_text(str(path) + "\n", encoding="utf-8")
+
+
+def read_state():
+    if not STATE_FILE.exists():
+        return None
+    try:
+        text = STATE_FILE.read_text(encoding="utf-8").strip()
+        return text if text else None
+    except Exception:
+        return None
+
+
+def choose_random(images):
+    return random.choice(images)
+
+
+def pick_relative(images, current_str, direction):
+    paths = [str(p) for p in images]
+    try:
+        idx = paths.index(current_str)
+    except ValueError:
+        return None
+    if direction == "next":
+        new_idx = (idx + 1) % len(images)
+    else:  # "previous"
+        new_idx = (idx - 1) % len(images)
+    return images[new_idx]
+
+
+def usage():
+    print("Usage: set-wallpaper [next|previous|random]", file=sys.stderr)
+
+
+def main():
+    if len(sys.argv) != 2 or sys.argv[1] not in {"next", "previous", "random"}:
+        usage()
+        sys.exit(2)
+
+    action = sys.argv[1]
+    images = list_images()
+    if not images:
+        print(f"No images found in '{WALLPAPERS_DIR}' (only .png and .jpg are considered).", file=sys.stderr)
+        sys.exit(1)
+
+    if action == "random":
+        chosen = choose_random(images)
+    else:
+        current = read_state()
+        if current is None:
+            chosen = choose_random(images)
+        else:
+            cur_path = Path(current)
+            if not cur_path.is_absolute():
+                cur_path = (Path.home() / cur_path).resolve()
+            chosen = pick_relative(images, str(cur_path), action)
+            if chosen is None:
+                chosen = choose_random(images)
+
+    run_feh(chosen)
+    write_state(chosen)
+
+
+if __name__ == "__main__":
+    main()

@@ -7,10 +7,13 @@ fi
 
 THEMES_DIR="$HOME/.config/themes"
 CURRENT_THEME_DIR="$HOME/.cache/theme"
+CURRENT_BG_DIR="$HOME/.cache/wallpapers"
 
 THEME_NAME=$(echo "$1" | sed -E 's/<[^>]+>//g' | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
 THEME_PATH="$THEMES_DIR/$THEME_NAME"
 
+DARK_BG_DIR="$HOME/.local/share/wallpapers_dark"
+LIGHT_BG_DIR="$HOME/.local/share/wallpapers"
 
 
 
@@ -26,9 +29,22 @@ fi
 # copy theme folder to .cache
 # cp -r "$THEME_PATH" "$CURRENT_THEME_DIR"
 # echo cp -r "$THEME_PATH" "$CURRENT_THEME_DIR"
-mkdir -p ~/.cache/theme
+mkdir -p "$CURRENT_THEME_DIR"
 cp -a "$THEME_PATH/." "$CURRENT_THEME_DIR"
 echo cp -a "$THEME_PATH/." "$CURRENT_THEME_DIR"
+
+
+## randomize wallpaper based on light/dark theme
+isdark=$(yq -r e '.info.darktheme' "$HOME/.cache/theme/info.toml")
+if [[ "$isdark" == "true" ]]; then
+  ln -nsf "$DARK_BG_DIR" "$CURRENT_BG_DIR"
+  echo ln -nsf "$DARK_BG_DIR" "$CURRENT_BG_DIR"
+else
+  ln -nsf "$LIGHT_BG_DIR" "$CURRENT_BG_DIR"
+  echo ln -nsf "$LIGHT_BG_DIR" "$CURRENT_BG_DIR"
+fi
+set-theme-set-bg random
+echo set-theme-set-bg random
 
 
 ## Alacritty
