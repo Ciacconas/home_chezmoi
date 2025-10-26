@@ -1,0 +1,5 @@
+[General]
+theme=KvArc#
+
+[Applications]
+KvArc%23=anki, klayout

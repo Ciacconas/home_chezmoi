@@ -6,10 +6,12 @@ if [[ -z $1 && $1 != "CNCLD" ]]; then
 fi
 
 THEMES_DIR="$HOME/.config/themes"
-CURRENT_THEME_DIR="$HOME/.config/current/theme"
+CURRENT_THEME_DIR="$HOME/.cache/theme"
 
 THEME_NAME=$(echo "$1" | sed -E 's/<[^>]+>//g' | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
 THEME_PATH="$THEMES_DIR/$THEME_NAME"
+
+
 
 
 # Check if the theme entered exists
@@ -18,12 +20,40 @@ if [[ ! -d "$THEME_PATH" ]]; then
   exit 1
 fi
 
-# Update theme symlinks
-ln -nsf "$THEME_PATH" "$CURRENT_THEME_DIR"
-echo ln -nsf "$THEME_PATH" "$CURRENT_THEME_DIR"
+# # Update theme symlinks
+# ln -nsf "$THEME_PATH" "$CURRENT_THEME_DIR"
+# echo ln -nsf "$THEME_PATH" "$CURRENT_THEME_DIR"
+# copy theme folder to .cache
+# cp -r "$THEME_PATH" "$CURRENT_THEME_DIR"
+# echo cp -r "$THEME_PATH" "$CURRENT_THEME_DIR"
+mkdir -p ~/.cache/theme
+cp -a "$THEME_PATH/." "$CURRENT_THEME_DIR"
+echo cp -a "$THEME_PATH/." "$CURRENT_THEME_DIR"
 
 
 ## Alacritty
 touch ~/.config/alacritty/alacritty.toml
 echo touch ~/.config/alacritty/alacritty.toml
 
+## Update xsettingsd
+killall -HUP xsettingsd
+echo killall -HUP xsettingsd
+
+## Xrdb
+write_xresources_colors
+xrdb "$HOME/.cache/theme/xresources"
+echo xrdb "$HOME/.cache/theme/xresources"
+
+## update dwm
+xsetroot -name fsignal:3
+echo xsetroot -name fsignal:3
+
+## update dwm_status
+dwm_status
+echo dwm_status
+
+## update qt (via kvantum)
+kvtheme=$(yq -r '.info.kvtheme // "KvArcDark#"' ~/.cache/theme/info.toml)
+# Run kvantummanager --set kvtheme theme
+kvantummanager --set "${kvtheme}"
+echo kvantummanager --set "${kvtheme}"

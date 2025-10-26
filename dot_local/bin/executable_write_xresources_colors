@@ -74,13 +74,13 @@ def main(argv=None) -> int:
     )
     parser.add_argument(
         "-i", "--input",
-        default="~/.config/cache/alacritty.toml",
+        default="~/.cache/theme/alacritty.toml",
         help="Path to Alacritty TOML file (default: ~/.config/cache/alacritty.toml)"
     )
     parser.add_argument(
         "-o", "--output",
-        default="~/.cache/theme/.Xresources",
-        help="Path to .Xresources file to append (default: ~/.cache/theme/.Xresources)"
+        default="~/.cache/theme/xresources",
+        help="Path to .Xresources file to append (default: ~/.cache/theme/xresources)"
     )
     args = parser.parse_args(argv)
 

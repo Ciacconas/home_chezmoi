@@ -1,0 +1,3 @@
+#!/bin/bash
+
+ls -1 ~/.config/themes | dmenu -p "󰔎 " | xargs -r -I{} set-theme "{}"
