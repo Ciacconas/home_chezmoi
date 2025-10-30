@@ -1,0 +1,5 @@
+#!/bin/sh
+
+## manually set the theme otherwise the xresources file is not inplace
+#set-theme "catppuccin-macchiato"
+

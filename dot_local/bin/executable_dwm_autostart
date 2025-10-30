@@ -55,7 +55,7 @@ log xrdb "$HOME/.Xresources"
 log default_screenlayout
 
 # enable mouse keyboard cross system
-start barrier
+start input-leap
 
 # enable pinyin input
 start fcitx5
@@ -113,7 +113,7 @@ done &
 sleep 1
 if [ -f "$HOME/.cache/xcs/picom.conf" ]; then
     # log picom --daemon --experimental-backends --config "$HOME/.cache/xcs/picom.conf"
-    log picom --daemon --config "$HOME/.cache/xcs/picom.conf"
+    log picom --daemon --config "$HOME/.config/picom/picom.conf"
 else
     log picom --daemon
 fi
