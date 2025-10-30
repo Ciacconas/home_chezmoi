@@ -1,4 +1,8 @@
-gtk-theme-name="Arc-Dark"
+# DO NOT EDIT! This file will be overwritten by LXAppearance.
+# Any customization should be done in ~/.gtkrc-2.0.mine instead.
+
+include "/home/choma/.gtkrc-2.0.mine"
+gtk-theme-name="Arc"
 gtk-icon-theme-name="Adwaita"
 gtk-font-name="Sans 12"
 gtk-cursor-theme-name="Simple-and-Soft"
@@ -9,6 +13,6 @@ gtk-button-images=1
 gtk-menu-images=1
 gtk-enable-event-sounds=1
 gtk-enable-input-feedback-sounds=1
-gtk-xft-antialias=1
-gtk-xft-hinting=1
+gtk-xft-antialias=0
+gtk-xft-hinting=0
 gtk-xft-hintstyle="hintfull"

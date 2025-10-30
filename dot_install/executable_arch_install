@@ -420,14 +420,16 @@ yay_install xurls
 pacman_install xdotool
 ## disable mouse acceleration
 pacman_install xorg-xinput
-## emulate mouse clicks and more from within python
-yay_install python-pyautogui
+# ## emulate mouse clicks and more from within python
+# yay_install python-pyautogui
 ## xsettingsd: immediately apply changes in GTK theme
 yay_install xsettingsd-git
 ## server access control for x
 pacman_install xorg-xhost
 ## colorful emoji on st build
 pacman_install libxft
+## xautolock to automatically lock the screen
+yay_install xautolock
 ## screen settings: arandr (xrandr included)
 pacman_install arandr
 ## better compositor:
@@ -445,7 +447,7 @@ pacman_install picom
 ## view x11vnc session (executable: gvncviewer)
 #pacman_install gtk-vnc
 ## view x11vnc session (executable: vncviewer) <-- better framerate
-pacman_install tigervnc
+# pacman_install tigervnc
 ## view x11vnc and realvnc sessions (executable: vncviewer)
 #yay_install realvnc-vnc-viewer
 
@@ -487,8 +489,6 @@ groupadd video >> "$LOG" 2>> "$ERR"
 echo $password | sudo -S usermod -a -G video $USER
 echo "ACTION==\"add\", SUBSYSTEM==\"backlight\", KERNEL==\"intel_backlight\", RUN+=\"/bin/chgrp video /sys/class/backlight/%k/brightness\"" | sudo tee /etc/udev/rules.d/backlight.rules > /dev/null 2>> "$ERR"
 echo "ACTION==\"add\", SUBSYSTEM==\"backlight\", KERNEL==\"intel_backlight\", RUN+=\"/bin/chmod g+w /sys/class/backlight/%k/brightness\"" | sudo tee -a /etc/udev/rules.d/backlight.rules > /dev/null 2>> "$ERR"
-## xautolock to automatically lock the screen
-pacman_install xautolock
 ## wallpapers
 pacman_install feh
 ## moving wallpapers
@@ -531,18 +531,15 @@ pacman_install libvncserver
 ## add windows remote desktop protocol to remmina
 pacman_install freerdp
 yay_install remmina-plugin-rdesktop
-## barrier: seemless mouse and keyboard sharing between computers (takes a while to build)
-# pacman_install barrier
-# pacman_install barrier-headless
 
 # Resources
 #-------------------------------------------------------------------------------
 
-## a collection of very nice wallpapers:
-if [ ! -d "$HOME/.local/share/wallpapers" ]; then
-    echo "cloning a full repo of very nice wallpapers..."
-    git clone https://gitlab.com/dwt1/wallpapers $HOME/.local/share/wallpapers >> "$LOG" 2>> "$ERR"
-fi
+# ## a collection of very nice wallpapers:
+# if [ ! -d "$HOME/.local/share/wallpapers" ]; then
+#     echo "cloning a full repo of very nice wallpapers..."
+#     git clone https://gitlab.com/dwt1/wallpapers $HOME/.local/share/wallpapers >> "$LOG" 2>> "$ERR"
+# fi
 
 
 # Personal builds and forks  (placed at the end so all dependencies are installed)
@@ -946,6 +943,8 @@ pacman_install highlight
 #pacman_install mediainfo
 ## process information
 pacman_install htop
+## process information, but more beautiful
+pacman_install btop
 ## termdown: terminal timer/stopwatch
 #pacman_install termdown
 ## espeak: text to speach engine (used in my custom termdown script)
@@ -998,22 +997,14 @@ yay_install neovim-remote
 ## stylua: a lua formatter (like black for python)
 pacman_install stylua
 pacman_install luarocks
-## ripgrep: better grep utility, also used by telescope-nvim plugin
-pacman_install ripgrep
-## fd: better find utility, also used by telescoe-nvim plugin
-pacman_install fd
-## ruby
-#pacman_install ruby
-## java
-#pacman_install jdk-openjdk
 ## julia
-pacman_install julia
+# pacman_install julia
 ## vimwiki-markdown: better integration for mardown files in vimwiki:
 #pip3_install vimwiki-markdown
 ## instant-markdown-d used for instant markdown visualization in vim
 #npm_install instant-markdown-d
 ## pyright: static typechecker and linter for python
-pacman_install pyright
+# pacman_install pyright
 ## pyright: static typechecker and linter for python
 # pacman_install python-lsp-server
 ## rust: best programming language out there
@@ -1024,16 +1015,16 @@ pacman_install rust-analyzer
 pacman_install ccls
 ## bash language server (required by CoC plugin for nvim)
 pacman_install bash-language-server
-## eslint: javascript linter (required by COC plugin for nvim)
-pacman_install eslint
+# ## eslint: javascript linter (required by COC plugin for nvim)
+# pacman_install eslint
 ## ctags: recommended vim dependency for jump-to-tag functionality
 pacman_install ctags
-## tidy: html formatter
-pacman_install tidy
-## prettier: universal formatter
-pacman_install prettier
-## composer/php
-pacman_install composer
+# ## tidy: html formatter
+# pacman_install tidy
+# ## prettier: universal formatter
+# pacman_install prettier
+# ## composer/php
+# pacman_install composer
 ## scim: terminal spreadsheet viewer/editor
 #yay_install sc-im
 ## wordgrinder: terminal word processor
@@ -1079,7 +1070,8 @@ pacman_install docker-buildx
 # curl -L https://raw.githubusercontent.com/docker/compose-cli/main/scripts/install/install_linux.sh | sh
 # sudo ln -sf /usr/local/bin/docker /usr/bin/docker
 systemctl_enable docker
-
+echo $password | sudo -S groupadd docker >> "$LOG" 2>> "$ERR"
+echo $password | sudo -S usermod -aG docker $USER >> "$LOG" 2>> "$ERR"
 
 
 
@@ -1164,18 +1156,18 @@ systemctl_enable syncthing
 #pacman_install nextcloud
 ## nginx: reverse proxy
 pacman_install nginx
-echo $password | sudo -S mkdir -p /var/www/html
-## patch nginx to increase types hash
-grep types_hash_max_size /etc/nginx/nginx.conf &> /dev/null
-[ $? -ne 0 ] && echo $password | sudo -S sed -i 's|http {.*|http {types_hash_max_size 4096;|g' /etc/nginx/nginx.conf
-## patch nginx to look into /var/www/html by default
-echo $password | sudo -S sed -i 's|root.*/usr/share/nginx/html;|root /var/www/html;|g' /etc/nginx/nginx.conf
-echo $password | sudo -S cp /usr/share/nginx/html/50x.html /var/www/html/
-if [ -f "$HOME/.extra/index.html" ]; then
-    [ -f /var/www/html/index.html ] || echo $password | sudo -S cp $HOME/.extra/index.html /var/www/html/index.html
-else
-    [ -f /var/www/html/index.html ] || echo $password | sudo -S cp /usr/share/nginx/html/index.html /var/www/html/
-fi
+# echo $password | sudo -S mkdir -p /var/www/html
+# ## patch nginx to increase types hash
+# grep types_hash_max_size /etc/nginx/nginx.conf &> /dev/null
+# [ $? -ne 0 ] && echo $password | sudo -S sed -i 's|http {.*|http {types_hash_max_size 4096;|g' /etc/nginx/nginx.conf
+# ## patch nginx to look into /var/www/html by default
+# echo $password | sudo -S sed -i 's|root.*/usr/share/nginx/html;|root /var/www/html;|g' /etc/nginx/nginx.conf
+# echo $password | sudo -S cp /usr/share/nginx/html/50x.html /var/www/html/
+# if [ -f "$HOME/.extra/index.html" ]; then
+#     [ -f /var/www/html/index.html ] || echo $password | sudo -S cp $HOME/.extra/index.html /var/www/html/index.html
+# else
+#     [ -f /var/www/html/index.html ] || echo $password | sudo -S cp /usr/share/nginx/html/index.html /var/www/html/
+# fi
 systemctl_enable nginx
 
 
@@ -1275,14 +1267,14 @@ pacman_install telegram-desktop
 
 ## pinta: an improved ms paint clone
 #yay_install pinta
-## inkscape
-pacman_install inkscape
+# ## inkscape
+# pacman_install inkscape
 ## GIMP: the GNU Image Manipulation program, a photoshop alternative
 #pacman_install gimp
 ## Krita: another photoshop alternative.
 #pacman_install krita
-## image viewer
-pacman_install sxiv
+# ## image viewer
+# pacman_install sxiv
 ## imagemagick: for images, screenshots
 pacman_install imagemagick
 ## scrot: alternative screenshot program [requires imagemagick]
@@ -1345,28 +1337,23 @@ pacman_install calibre
 #-------------------------------------------------------------------------------
 
 ## code OSS (open source build of vscode)
-pacman_install code
-## to unlock the MS proprietary market
-yay_install code-marketplace
-yay_install code-features
-yay_install code-features-insiders
-## extensions
-if [ $? -eq 0 ]; then
-    code --install-extension vscodevim.vim >> "$LOG" 2>> "$ERR"
-    code --install-extension wholroyd.jinja >> "$LOG" 2>> "$ERR"
-    code --install-extension james-yu.latex-workshop >> "$LOG" 2>> "$ERR"
-    code --install-extension ms-python.python >> "$LOG" 2>> "$ERR"
-    code --install-extension formulahendry.code-runner >> "$LOG" 2>> "$ERR"
-    code --install-extension shardulm94.trailing-spaces >> "$LOG" 2>> "$ERR"
-    code --install-extension pkief.material-icon-theme >> "$LOG" 2>> "$ERR"
-fi
-## Python programming language:
-pacman_install ruff
-pacman_install uv
-pacman_install python
-pacman_install ipython
-#pacman_install python2
-#pacman_install ipython2
+yay_install visual-studio-code-bin
+# ## code OSS (open source build of vscode)
+# pacman_install code
+# ## to unlock the MS proprietary market
+# yay_install code-marketplace
+# yay_install code-features
+# yay_install code-features-insiders
+# ## extensions
+# if [ $? -eq 0 ]; then
+#     code --install-extension vscodevim.vim >> "$LOG" 2>> "$ERR"
+#     code --install-extension wholroyd.jinja >> "$LOG" 2>> "$ERR"
+#     code --install-extension james-yu.latex-workshop >> "$LOG" 2>> "$ERR"
+#     code --install-extension ms-python.python >> "$LOG" 2>> "$ERR"
+#     code --install-extension formulahendry.code-runner >> "$LOG" 2>> "$ERR"
+#     code --install-extension shardulm94.trailing-spaces >> "$LOG" 2>> "$ERR"
+#     code --install-extension pkief.material-icon-theme >> "$LOG" 2>> "$ERR"
+# fi
 
 ## Swift programming language:
 #yay_install swift-bin
@@ -1388,7 +1375,7 @@ pacman_install ipython
 ## epiphany (gnome webbrowser)
 # pacman_install epiphany
 ## waterfox (like firefox, but better defaults)
-yay_install waterfox-g4-bin
+yay_install waterfox-bin
 ## firefox (like waterfox, but the original ;-) )
 #pacman_install firefox
 ## firefox developer edition
@@ -1502,6 +1489,13 @@ pacman_install lynx
 
 ## simple guis
 pacman_install tk
+## Python programming language:
+pacman_install ruff
+pacman_install uv
+pacman_install python
+pacman_install ipython
+#pacman_install python2
+#pacman_install ipython2
 ## python timezone info
 pacman_install python-pytz
 ## progress bars
@@ -1513,9 +1507,10 @@ pacman_install python-matplotlib
 ## monitor DRM events from udev (used in my custom 'watch_screens' script)
 pacman_install python-pyudev
 ## linters & formatters (recommended for vim)
-pacman_install python-black
+# pacman_install python-black
 ## automatic colorscheme generation based on image
-pacman_install python-pywal
+# pacman_install python-pywal
+# pacman_install python-pywal16
 ## connectivity (requirement for calcurse-caldav synchronization)
 pacman_install python-httplib2
 ## python-neovim integration
@@ -1612,17 +1607,17 @@ pacman_install gnupg # gpg --full-gen-key (generate gpg key)
 echo $password | sudo -S timedatectl set-local-rtc 1 >> "$LOG" 2>> "$ERR"
 ## make sure everyone can mount in /mnt
 echo $password | sudo -S chmod a+rwx /mnt >> "$LOG" 2>> "$ERR"
-if [ ! -f $HOME/.Xresources ]; then
-    # copy preferred theme to ~/.Xresources -> default color scheme
-    cp $HOME/.config/Xresources/gruvbox-dark $HOME/.Xresources >> "$LOG" 2>> "$ERR"
-    # enable colorscheme
-    xrdb $HOME/.Xresources >> "$LOG" 2>> "$ERR"
-    # if the custom `xcs` script is in the path,
-    # run it to apply colorscheme to currently open windows:
-    xcs current >> "$LOG" 2>> "$ERR"
-fi
 ## make sure everyone can create folders in /opt
 echo $password | sudo -S chmod a+rwx /opt >> "$LOG" 2>> "$ERR"
+# if [ ! -f $HOME/.Xresources ]; then
+#     # copy preferred theme to ~/.Xresources -> default color scheme
+#     cp $HOME/.config/Xresources/gruvbox-dark $HOME/.Xresources >> "$LOG" 2>> "$ERR"
+#     # enable colorscheme
+#     xrdb $HOME/.Xresources >> "$LOG" 2>> "$ERR"
+#     # if the custom `xcs` script is in the path,
+#     # run it to apply colorscheme to currently open windows:
+#     xcs current >> "$LOG" 2>> "$ERR"
+# fi
 
 
 # Shells and extensions
