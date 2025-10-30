@@ -68,12 +68,12 @@ while true; do
     sleep 60
 done &
 
-# update email inbox every 10 minutes (but only ask once for the password.)
-while true; do
-    start syncmail
-    export PASSWORD_STORE_GPG_OPTS="--pinentry-mode error"
-    sleep 600s
-done &
+# # update email inbox every 10 minutes (but only ask once for the password.)
+# while true; do
+#     start syncmail
+#     export PASSWORD_STORE_GPG_OPTS="--pinentry-mode error"
+#     sleep 600s
+# done &
 
 # update dwm status bar every 10 seconds
 while true; do
@@ -109,14 +109,14 @@ while true; do
     sleep 600s
 done &
 
-# enable transparent windows (should be last)
-sleep 1
-if [ -f "$HOME/.cache/xcs/picom.conf" ]; then
-    # log picom --daemon --experimental-backends --config "$HOME/.cache/xcs/picom.conf"
-    log picom --daemon --config "$HOME/.config/picom/picom.conf"
-else
-    log picom --daemon
-fi
+# # enable transparent windows (should be last)
+# sleep 1
+# if [ -f "$HOME/.cache/xcs/picom.conf" ]; then
+#     # log picom --daemon --experimental-backends --config "$HOME/.cache/xcs/picom.conf"
+#     log picom --daemon --config "$HOME/.config/picom/picom.conf"
+# else
+#     log picom --daemon
+# fi
 
 # # conky dashboards (same one on three monitors)
 # if ! pidof conky >/dev/null 2> /dev/null; then
@@ -126,4 +126,4 @@ fi
 # fi
 
 
-gocryptfs --extpass "rbw get cipher_note" /home/choma/Documents/cipher /home/choma/Documents/xanadu >/dev/null 2>&1 &
+# gocryptfs --extpass "rbw get cipher_note" /home/choma/Documents/cipher /home/choma/Documents/xanadu >/dev/null 2>&1 &
